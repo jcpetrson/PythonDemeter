@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Demeter{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      color: #222;
+      background: #f5f5f5;
+      margin: 0;
+    }
+
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 0 1rem;
+    }
+
+    header .inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      height: 52px;
+    }
+
+    header a.brand {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.1rem;
+      white-space: nowrap;
+    }
+
+    header form {
+      display: flex;
+      flex: 1;
+      gap: 0.4rem;
+    }
+
+    header form input[type=search] {
+      flex: 1;
+      padding: 0.35rem 0.6rem;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    header form select {
+      padding: 0.35rem 0.4rem;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      background: #fff;
+    }
+
+    header form button {
+      padding: 0.35rem 0.9rem;
+      background: #e94560;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    header form button:hover { background: #c73652; }
+
+    main {
+      max-width: 960px;
+      margin: 1.5rem auto;
+      padding: 0 1rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin: 1px;
+    }
+
+    .fmt-epub   { background: #d4edda; color: #155724; }
+    .fmt-pdf    { background: #f8d7da; color: #721c24; }
+    .fmt-mobi   { background: #cce5ff; color: #004085; }
+    .fmt-azw3   { background: #e2d9f3; color: #432874; }
+    .fmt-fb2    { background: #d1ecf1; color: #0c5460; }
+    .fmt-lit    { background: #e2e3e5; color: #383d41; }
+    .fmt-default { background: #e2e3e5; color: #383d41; }
+
+    .error-box {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 0.75rem 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="inner">
+    <a href="/" class="brand">Demeter</a>
+    <form action="/" method="get">
+      <input type="search" name="q" placeholder="Search titles, authors, series..." value="{{ q|default('') }}">
+      <select name="fmt">
+        <option value="">All formats</option>
+        {% for f in formats %}
+          <option value="{{ f }}" {% if fmt == f %}selected{% endif %}>{{ f }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Search</button>
+    </form>
+  </div>
+</header>
+<main>
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

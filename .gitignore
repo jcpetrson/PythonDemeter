@@ -1,0 +1,14 @@
+# Large data files — do not commit
+data/
+Archive*.zip
+Books.csv
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# macOS
+.DS_Store

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}{{ book.title_text or 'Book' }} — Demeter{% endblock %}
+
+{% block content %}
+
+<a href="javascript:history.back()" style="color:#666; font-size:13px; text-decoration:none;">&larr; Back</a>
+
+<div style="display:flex; gap:1.5rem; margin-top:1rem;">
+
+  {% if book.cover_url %}
+  <div style="flex-shrink:0;">
+    <img src="{{ book.cover_url }}" alt="Cover"
+         style="width:120px; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,.2);"
+         onerror="this.style.display='none'">
+  </div>
+  {% endif %}
+
+  <div style="flex:1;">
+    <h1 style="margin:0 0 0.25rem; font-size:1.4rem; color:#1a1a2e;">
+      {{ book.title_text or '(no title)' }}
+    </h1>
+
+    {% if book.authors_text %}
+      <p style="margin:0 0 0.5rem; color:#444; font-size:1rem;">{{ book.authors_text }}</p>
+    {% endif %}
+
+    <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.75rem; font-size:13px; color:#666;">
+      {% if book.year %}<span>{{ book.year }}</span>{% endif %}
+      {% if book.get('series') %}<span>&middot; {{ book.series }}</span>{% endif %}
+      {% if book.get('publisher') %}<span>&middot; {{ book.publisher }}</span>{% endif %}
+      {% if book.get('language') %}<span>&middot; {{ book.language }}</span>{% endif %}
+    </div>
+
+    {% if book.title_href %}
+    <div style="margin-bottom:0.75rem;">
+      <a href="{{ book.title_href }}" target="_blank" rel="noopener"
+         style="display:inline-block; padding:6px 14px; background:#1a1a2e; color:#fff; border-radius:4px; text-decoration:none; font-size:13px; font-weight:600;">
+        Open in Calibre &rarr;
+      </a>
+    </div>
+    {% endif %}
+
+    <div style="margin-bottom:0.75rem;">
+      {% for f in book.formats_list %}
+        <span class="badge fmt-{{ f if f in ['epub','pdf','mobi','azw3','fb2','lit'] else 'default' }}">{{ f }}</span>
+      {% endfor %}
+    </div>
+
+    {% if book.tags_list %}
+    <div style="margin-bottom:0.75rem;">
+      {% for tag in book.tags_list %}
+        <span style="display:inline-block; background:#eef; color:#339; padding:1px 8px; border-radius:10px; font-size:12px; margin:1px;">{{ tag }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if book.identifiers_dict %}
+    <p style="font-size:13px; color:#666; margin:0 0 0.5rem;">
+      {% if book.identifiers_dict.isbn %}ISBN: {{ book.identifiers_dict.isbn }}{% endif %}
+      {% if book.identifiers_dict.google %}
+        &nbsp;&middot;&nbsp;
+        <a href="https://books.google.com/books?id={{ book.identifiers_dict.google }}"
+           target="_blank" rel="noopener" style="color:#1a73e8;">Google Books</a>
+      {% endif %}
+    </p>
+    {% endif %}
+  </div>
+</div>
+
+{% if book.links_list %}
+<div style="margin-top:1.5rem;">
+  <h2 style="font-size:1rem; font-weight:700; color:#1a1a2e; margin-bottom:0.5rem;">Download Links</h2>
+  <ul style="list-style:none; margin:0; padding:0;">
+    {% for link in book.links_list %}
+    <li style="margin-bottom:0.4rem;">
+      <a href="{{ link.href }}" target="_blank" rel="noopener"
+         style="display:inline-flex; align-items:center; gap:0.4rem; color:#1a73e8; text-decoration:none; font-size:14px;">
+        {{ link.label or link.href }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% else %}
+<p style="margin-top:1rem; color:#888; font-size:13px;">No download links available.</p>
+{% endif %}
+
+{% endblock %}

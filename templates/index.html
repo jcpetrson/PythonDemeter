@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}{% if q %}{{ q }} — {% endif %}Demeter{% endblock %}
+
+{% block content %}
+
+{% if error %}
+  <div class="error-box">{{ error }}</div>
+{% endif %}
+
+{% if not q %}
+  <div style="text-align:center; margin-top:4rem;">
+    <h2 style="font-size:1.6rem; color:#1a1a2e;">1.5M+ books from Calibre libraries</h2>
+    <p style="color:#666;">Search by title, author, series, or any keyword.</p>
+  </div>
+
+{% elif books %}
+  <p style="color:#666; margin-bottom:0.75rem;">
+    {% if total >= 5000 %}5000+{% else %}{{ total }}{% endif %} result{% if total != 1 %}s{% endif %}
+    for <strong>{{ q }}</strong>{% if fmt %} &middot; <strong>{{ fmt }}</strong>{% endif %}
+    &nbsp;&middot;&nbsp; page {{ page }} of {{ total_pages }}
+  </p>
+
+  <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:6px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.08);">
+    <thead>
+      <tr style="background:#1a1a2e; color:#fff; font-size:13px;">
+        <th style="padding:8px 12px; text-align:left;">Title</th>
+        <th style="padding:8px 12px; text-align:left;">Author(s)</th>
+        <th style="padding:8px 4px; text-align:center; width:60px;">Year</th>
+        <th style="padding:8px 12px; text-align:left; width:150px;">Formats</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for book in books %}
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:8px 12px;">
+          <a href="/book/{{ book.uuid }}" style="color:#1a1a2e; font-weight:600; text-decoration:none;">
+            {{ book.title_text or '(no title)' }}
+          </a>
+          {% if book.title_href %}
+            <a href="{{ book.title_href }}" target="_blank" rel="noopener"
+               title="Open in Calibre"
+               style="color:#888; font-size:11px; margin-left:5px; text-decoration:none;">&#8599;</a>
+          {% endif %}
+          {% if book.series %}
+            <span style="color:#888; font-size:12px; margin-left:4px;">{{ book.series }}</span>
+          {% endif %}
+        </td>
+        <td style="padding:8px 12px; color:#444;">{{ book.authors_text or '—' }}</td>
+        <td style="padding:8px 4px; text-align:center; color:#666;">{{ book.year or '' }}</td>
+        <td style="padding:8px 12px;">
+          {% for f in book.formats_list %}
+            <span class="badge fmt-{{ f if f in ['epub','pdf','mobi','azw3','fb2','lit'] else 'default' }}">{{ f }}</span>
+          {% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if total_pages > 1 %}
+  <div style="display:flex; gap:0.5rem; align-items:center; margin-top:1rem; justify-content:center;">
+    {% if page > 1 %}
+      <a href="/?q={{ q|urlencode }}&fmt={{ fmt }}&page={{ page - 1 }}"
+         style="padding:5px 14px; background:#1a1a2e; color:#fff; border-radius:4px; text-decoration:none; font-size:13px;">
+        &larr; Prev
+      </a>
+    {% endif %}
+    <span style="color:#666; font-size:13px;">Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+      <a href="/?q={{ q|urlencode }}&fmt={{ fmt }}&page={{ page + 1 }}"
+         style="padding:5px 14px; background:#1a1a2e; color:#fff; border-radius:4px; text-decoration:none; font-size:13px;">
+        Next &rarr;
+      </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+{% elif q %}
+  <p style="color:#666;">No results found for <strong>{{ q }}</strong>{% if fmt %} in format <strong>{{ fmt }}</strong>{% endif %}.</p>
+{% endif %}
+
+{% endblock %}
