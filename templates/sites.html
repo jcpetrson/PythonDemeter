@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Sites — Demeter{% endblock %}
+
+{% block content %}
+
+<form method="get" style="display:flex; gap:0.5rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap;">
+  <select name="status" style="padding:5px 8px; border:1px solid #ddd; border-radius:4px; font-size:13px;">
+    <option value="">All statuses</option>
+    {% for s in all_statuses %}
+      <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <select name="country" style="padding:5px 8px; border:1px solid #ddd; border-radius:4px; font-size:13px;">
+    <option value="">All countries</option>
+    {% for c in all_countries %}
+      <option value="{{ c }}" {% if country_filter == c %}selected{% endif %}>{{ c }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit"
+          style="padding:5px 14px; background:#1a1a2e; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:13px;">
+    Filter
+  </button>
+  {% if status_filter or country_filter %}
+    <a href="/sites" style="font-size:13px; color:#666;">Clear</a>
+  {% endif %}
+  <span style="margin-left:auto; color:#666; font-size:13px;">
+    {{ sites|length }} of {{ total_count }} sites
+  </span>
+</form>
+
+<table style="width:100%; border-collapse:collapse; background:#fff; border-radius:6px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.08); font-size:13px;">
+  <thead>
+    <tr style="background:#1a1a2e; color:#fff;">
+      <th style="padding:8px 12px; text-align:left;">URL</th>
+      <th style="padding:8px 8px; text-align:center; width:44px;">CC</th>
+      <th style="padding:8px 8px; text-align:center; width:100px;">Status</th>
+      <th style="padding:8px 8px; text-align:right; width:64px;">Books</th>
+      <th style="padding:8px 8px; text-align:right; width:54px;">Libs</th>
+      <th style="padding:8px 8px; text-align:right; width:54px;">New</th>
+      <th style="padding:8px 12px; text-align:left; width:150px;">Last Check</th>
+      <th style="padding:8px 8px; text-align:center; width:50px;">Active</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for site in sites %}
+    {% set status = site['status'] or 'unknown' %}
+    {% set status_colors = {
+      'online':       ('d4edda', '155724'),
+      'down':         ('e2e3e5', '383d41'),
+      'error':        ('f8d7da', '721c24'),
+      'unauthorized': ('fff3cd', '856404'),
+      'unknown':      ('e2e3e5', '6c757d'),
+    } %}
+    {% set color = status_colors.get(status, ('e2e3e5', '6c757d')) %}
+    <tr style="border-bottom:1px solid #eee;">
+      <td style="padding:7px 12px;">
+        <a href="/sites/{{ site['uuid'] }}" style="color:#1a1a2e; text-decoration:none; font-weight:500;">
+          {{ site['url'] }}
+        </a>
+        <a href="{{ site['url'] }}" target="_blank" rel="noopener"
+           title="Open Calibre instance"
+           style="color:#888; font-size:11px; margin-left:4px; text-decoration:none;">&#8599;</a>
+      </td>
+      <td style="padding:7px 8px; text-align:center; color:#555;">{{ site['country'] or '—' }}</td>
+      <td style="padding:7px 8px; text-align:center;">
+        <span style="display:inline-block; padding:1px 7px; border-radius:3px; font-size:11px; font-weight:700;
+                     background:#{{ color[0] }}; color:#{{ color[1] }};">
+          {{ status }}
+        </span>
+      </td>
+      <td style="padding:7px 8px; text-align:right; color:#333;">
+        {{ site['book_count'] if site['book_count'] else '—' }}
+      </td>
+      <td style="padding:7px 8px; text-align:right; color:#555;">
+        {{ site['libraries_count'] if site['libraries_count'] else '—' }}
+      </td>
+      <td style="padding:7px 8px; text-align:right; color:#2a7a2a;">
+        {% if site['new_books'] and site['new_books'] > 0 %}+{{ site['new_books'] }}{% else %}—{% endif %}
+      </td>
+      <td style="padding:7px 12px; color:#888; font-size:12px;">
+        {{ (site['last_check'] or '')[:16].replace('T', ' ') or '—' }}
+      </td>
+      <td style="padding:7px 8px; text-align:center;">
+        {% if site['active'] %}
+          <span style="color:#155724; font-weight:700;">&#10003;</span>
+        {% else %}
+          <span style="color:#ccc;">—</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

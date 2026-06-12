@@ -8,6 +8,7 @@ from flask import Flask, g, render_template, request, abort
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INDEX_DB_PATH = os.path.join(_BASE_DIR, "data", "index.db")
+SITES_DB_PATH = os.path.join(_BASE_DIR, "data", "sites.db")
 
 PER_PAGE = 25
 
@@ -36,6 +37,21 @@ def close_db(e=None):
     db = g.pop('db', None)
     if db:
         db.close()
+    sdb = g.pop('sites_db', None)
+    if sdb:
+        sdb.close()
+
+
+def get_sites_db():
+    if 'sites_db' not in g:
+        g.sites_db = sqlite3.connect(
+            f"file:{SITES_DB_PATH}?mode=ro",
+            uri=True,
+            timeout=30,
+            check_same_thread=False,
+        )
+        g.sites_db.row_factory = sqlite3.Row
+    return g.sites_db
 
 
 def parse_title(raw):
@@ -213,6 +229,65 @@ def book_detail(uuid):
         book['identifiers_dict'] = {}
 
     return render_template('book.html', book=book)
+
+
+@app.route('/sites')
+def sites_list():
+    db = get_sites_db()
+    status_filter = request.args.get('status', '').strip()
+    country_filter = request.args.get('country', '').strip().upper()
+
+    params = []
+    where = []
+    if status_filter:
+        where.append('status = ?')
+        params.append(status_filter)
+    if country_filter:
+        where.append('country = ?')
+        params.append(country_filter)
+
+    where_sql = ('WHERE ' + ' AND '.join(where)) if where else ''
+    rows = db.execute(
+        f'''SELECT uuid, url, country, status, book_count, libraries_count,
+                   new_books, last_check, last_online, active, failed_attempts
+            FROM sites {where_sql}
+            ORDER BY book_count DESC''',
+        params,
+    ).fetchall()
+
+    all_statuses = [r[0] for r in db.execute(
+        "SELECT DISTINCT status FROM sites WHERE status IS NOT NULL ORDER BY status"
+    ).fetchall()]
+    all_countries = [r[0] for r in db.execute(
+        "SELECT DISTINCT country FROM sites WHERE country IS NOT NULL ORDER BY country"
+    ).fetchall()]
+    total_count = db.execute("SELECT COUNT(*) FROM sites").fetchone()[0]
+
+    return render_template(
+        'sites.html',
+        sites=rows,
+        status_filter=status_filter,
+        country_filter=country_filter,
+        all_statuses=all_statuses,
+        all_countries=all_countries,
+        total_count=total_count,
+    )
+
+
+@app.route('/sites/<uuid>')
+def site_detail(uuid):
+    db = get_sites_db()
+    row = db.execute('SELECT * FROM sites WHERE uuid = ?', (uuid,)).fetchone()
+    if row is None:
+        abort(404)
+
+    libraries = db.execute(
+        '''SELECT library, book_count_per_library, new_books_per_library, last_updated
+           FROM libraries_per_server WHERE url = ? ORDER BY book_count_per_library DESC''',
+        (row['url'],),
+    ).fetchall()
+
+    return render_template('site_detail.html', site=row, libraries=libraries)
 
 
 if __name__ == '__main__':
