@@ -76,8 +76,7 @@ def _load_awards():
     except Exception:
         return {}
 
-def get_awards_by_year():
-    return _load_awards()
+AWARDS_BY_YEAR = _load_awards()
 
 SORT_FIELDS = {
     'title':    "json_extract(s.title, '$.label')",
@@ -294,12 +293,11 @@ def get_home_stats():
         "GROUP BY year ORDER BY year DESC LIMIT 60"
     ).fetchall()
     # Build awards list for the most recent years that have data
-    awards_by_year = get_awards_by_year()
     recent_award_years = sorted(
-        (y for y in awards_by_year if 1920 <= y <= 2025),
+        (y for y in AWARDS_BY_YEAR if 1920 <= y <= 2025),
         reverse=True
     )[:15]
-    awards_recent = {y: awards_by_year[y] for y in recent_award_years}
+    awards_recent = {y: AWARDS_BY_YEAR[y] for y in recent_award_years}
     return {
         'total': total,
         'languages': [dict(r) for r in lang_rows],
