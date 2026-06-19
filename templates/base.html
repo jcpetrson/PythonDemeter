@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Demeter{% endblock %}</title>
+  <title>{% block title %}WWW Library{% endblock %}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
 
@@ -106,12 +106,56 @@
       border-radius: 4px;
       margin-bottom: 1rem;
     }
+
+    /* Home page */
+    .home-hero { text-align: center; padding: 2.5rem 1rem 1.5rem; }
+    .home-hero h1 { font-size: 2rem; color: #1a1a2e; margin: 0 0 0.4rem; }
+    .home-hero p  { color: #666; margin: 0; font-size: 1rem; }
+    .home-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1.5rem; }
+    @media (max-width: 680px) { .home-cards { grid-template-columns: 1fr; } }
+    .home-card { background: #fff; border-radius: 8px; padding: 1.25rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .home-card h2 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: .06em; color: #888; margin: 0 0 1rem; font-weight: 600; }
+    .pill-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .pill-link {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.3rem 0.65rem; border-radius: 999px;
+      background: #f0f2f5; color: #1a1a2e; text-decoration: none;
+      font-size: 13px; transition: background .15s;
+    }
+    .pill-link:hover { background: #1a1a2e; color: #fff; }
+    .pill-link .count { font-size: 11px; color: #999; }
+    .pill-link:hover .count { color: #ccc; }
+    .year-grid { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .year-pill {
+      display: inline-flex; flex-direction: column; align-items: center;
+      padding: 0.3rem 0.55rem; border-radius: 6px;
+      background: #f0f2f5; color: #1a1a2e; text-decoration: none;
+      font-size: 13px; min-width: 52px; text-align: center; transition: background .15s;
+    }
+    .year-pill:hover { background: #1a1a2e; color: #fff; }
+    .year-pill .yn { font-weight: 600; }
+    .year-pill .yc { font-size: 10px; color: #999; }
+    .year-pill:hover .yc { color: #ccc; }
+
+    /* Award winners */
+    #awardsWrap { display: flex; flex-direction: column; gap: 0; }
+    .award-year { border-bottom: 1px solid #f0f0f0; padding: 0.6rem 0; }
+    .award-year:last-child { border-bottom: none; }
+    .award-yr-head { margin-bottom: 0.35rem; }
+    .award-yr-link { font-weight: 700; font-size: 0.95rem; color: #1a1a2e; text-decoration: none; }
+    .award-yr-link:hover { text-decoration: underline; }
+    .award-entries { display: flex; flex-direction: column; gap: 0.2rem; padding-left: 1rem; }
+    .award-entry { font-size: 13px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem; }
+    .award-title { color: #1a73e8; text-decoration: none; font-weight: 500; }
+    .award-title:hover { text-decoration: underline; }
+    .award-author { color: #555; }
+    .award-badge { display: inline-block; padding: 1px 7px; border-radius: 3px; background: #eef2ff; color: #3730a3; font-size: 11px; white-space: nowrap; }
   </style>
 </head>
 <body>
 <header>
   <div class="inner">
-    <a href="/" class="brand">Demeter</a>
+    <a href="/" class="brand">WWW Library</a>
     <a href="/sites" style="color:#ccc; text-decoration:none; font-size:13px; white-space:nowrap;">Sites</a>
     <form action="/" method="get">
       <input type="search" name="q" placeholder="Search titles, authors, series..." value="{{ q|default('') }}">
@@ -119,6 +163,12 @@
         <option value="">All formats</option>
         {% for f in formats %}
           <option value="{{ f }}" {% if fmt == f %}selected{% endif %}>{{ f }}</option>
+        {% endfor %}
+      </select>
+      <select name="lang">
+        <option value="">All languages</option>
+        {% for code, label in languages %}
+          <option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
       <button type="submit">Search</button>

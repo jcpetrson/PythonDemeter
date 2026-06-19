@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ book.title_text or 'Book' }} — Demeter{% endblock %}
+{% block title %}{{ book.title_text or 'Book' }} — WWW Library{% endblock %}
 
 {% block content %}
 
@@ -29,7 +29,7 @@
       {% if book.year %}<span>{{ book.year }}</span>{% endif %}
       {% if book.get('series') %}<span>&middot; {{ book.series }}</span>{% endif %}
       {% if book.get('publisher') %}<span>&middot; {{ book.publisher }}</span>{% endif %}
-      {% if book.get('language') %}<span>&middot; {{ book.language }}</span>{% endif %}
+      {% if book.get('language') %}<span>&middot; {{ lang_map.get(book.language, book.language) if lang_map else book.language }}</span>{% endif %}
     </div>
 
     {% if book.title_href %}

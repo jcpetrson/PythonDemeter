@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}{% if q %}{{ q }} — {% endif %}Demeter{% endblock %}
+{% block title %}{% if q %}{{ q }} — {% endif %}{% if year %}{{ year }} — {% endif %}WWW Library{% endblock %}
+
+{% macro sort_link(field, label) %}
+  {% if sort == field %}
+    {% set next_order = 'asc' if order == 'desc' else 'desc' %}
+    {% set indicator = ' ↑' if order == 'asc' else ' ↓' %}
+  {% else %}
+    {% set next_order = 'asc' %}
+    {% set indicator = '' %}
+  {% endif %}
+  <a href="/?q={{ q|urlencode }}&fmt={{ fmt }}&lang={{ lang }}&year={{ year }}&sort={{ field }}&order={{ next_order }}&page=1"
+     style="color:#fff; text-decoration:none; white-space:nowrap;">{{ label }}{{ indicator }}</a>
+{% endmacro %}
 
 {% block content %}
 
@@ -8,25 +20,86 @@
   <div class="error-box">{{ error }}</div>
 {% endif %}
 
-{% if not q %}
-  <div style="text-align:center; margin-top:4rem;">
-    <h2 style="font-size:1.6rem; color:#1a1a2e;">1.5M+ books from Calibre libraries</h2>
-    <p style="color:#666;">Search by title, author, series, or any keyword.</p>
+{% if stats %}
+  {# ── Home page ── #}
+  <div class="home-hero">
+    <h1>WWW Library</h1>
+    <p>{{ "{:,}".format(stats.total) }} books from Calibre libraries worldwide</p>
+  </div>
+
+  <div class="home-cards">
+
+    {% if stats.has_awards %}
+    <div class="home-card" style="grid-column: 1 / -1;">
+      <h2>Best books by year &mdash; award winners</h2>
+      <div id="awardsWrap">
+        {% for yr in stats.award_years %}
+        <div class="award-year">
+          <div class="award-yr-head">
+            <a href="/?lang=eng&year={{ yr }}" class="award-yr-link">{{ yr }}</a>
+          </div>
+          <div class="award-entries">
+            {% for e in stats.awards[yr] %}
+            <div class="award-entry">
+              <a href="/?q={{ e.title | urlencode }}" class="award-title">{{ e.title }}</a>
+              {% if e.author %}<span class="award-author"> &mdash; {{ e.author }}</span>{% endif %}
+              <span class="award-badge">{{ e.award }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="home-card">
+      <h2>English books by year</h2>
+      <p style="font-size:13px; color:#888; margin:0 0 0.75rem;">
+        Run <code>python3 fetch_awards.py</code> to load award-winner data.
+      </p>
+      <div class="year-grid">
+        {% for row in stats.years %}
+          <a href="/?lang=eng&year={{ row.year }}" class="year-pill">
+            <span class="yn">{{ row.year }}</span>
+            <span class="yc">{{ "{:,}".format(row.n) }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="home-card">
+      <h2>Browse by language</h2>
+      <div class="pill-grid">
+        {% for row in stats.languages %}
+          <a href="/?lang={{ row.language }}" class="pill-link">
+            {{ lang_map.get(row.language, row.language) }}
+            <span class="count">{{ "{:,}".format(row.n) }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+
   </div>
 
 {% elif books %}
+  {# ── Results ── #}
   <p style="color:#666; margin-bottom:0.75rem;">
     {% if total >= 5000 %}5000+{% else %}{{ total }}{% endif %} result{% if total != 1 %}s{% endif %}
-    for <strong>{{ q }}</strong>{% if fmt %} &middot; <strong>{{ fmt }}</strong>{% endif %}
+    {% if q %}for <strong>{{ q }}</strong>{% endif %}
+    {% if year %} &middot; <strong>{{ year }}</strong>{% endif %}
+    {% if fmt %} &middot; <strong>{{ fmt }}</strong>{% endif %}
+    {% if lang %} &middot; <strong>{{ lang_map.get(lang, lang) }}</strong>{% endif %}
     &nbsp;&middot;&nbsp; page {{ page }} of {{ total_pages }}
   </p>
 
   <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:6px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.08);">
     <thead>
-      <tr style="background:#1a1a2e; color:#fff; font-size:13px;">
-        <th style="padding:8px 12px; text-align:left;">Title</th>
-        <th style="padding:8px 12px; text-align:left;">Author(s)</th>
-        <th style="padding:8px 4px; text-align:center; width:60px;">Year</th>
+      <tr style="background:#1a1a2e; color:#fff; font-size:13px; cursor:pointer;">
+        <th style="padding:8px 12px; text-align:left;">{{ sort_link('title', 'Title') }}</th>
+        <th style="padding:8px 12px; text-align:left;">{{ sort_link('authors', 'Author(s)') }}</th>
+        <th style="padding:8px 4px; text-align:center; width:60px;">{{ sort_link('year', 'Year') }}</th>
+        <th style="padding:8px 12px; text-align:left; width:90px;">{{ sort_link('language', 'Language') }}</th>
         <th style="padding:8px 12px; text-align:left; width:150px;">Formats</th>
       </tr>
     </thead>
@@ -48,6 +121,7 @@
         </td>
         <td style="padding:8px 12px; color:#444;">{{ book.authors_text or '—' }}</td>
         <td style="padding:8px 4px; text-align:center; color:#666;">{{ book.year or '' }}</td>
+        <td style="padding:8px 12px; color:#555; font-size:12px;">{{ lang_map.get(book.language, book.language) or '' }}</td>
         <td style="padding:8px 12px;">
           {% for f in book.formats_list %}
             <span class="badge fmt-{{ f if f in ['epub','pdf','mobi','azw3','fb2','lit'] else 'default' }}">{{ f }}</span>
@@ -61,14 +135,14 @@
   {% if total_pages > 1 %}
   <div style="display:flex; gap:0.5rem; align-items:center; margin-top:1rem; justify-content:center;">
     {% if page > 1 %}
-      <a href="/?q={{ q|urlencode }}&fmt={{ fmt }}&page={{ page - 1 }}"
+      <a href="/?q={{ q|urlencode }}&fmt={{ fmt }}&lang={{ lang }}&year={{ year }}&sort={{ sort }}&order={{ order }}&page={{ page - 1 }}"
          style="padding:5px 14px; background:#1a1a2e; color:#fff; border-radius:4px; text-decoration:none; font-size:13px;">
         &larr; Prev
       </a>
     {% endif %}
     <span style="color:#666; font-size:13px;">Page {{ page }} of {{ total_pages }}</span>
     {% if page < total_pages %}
-      <a href="/?q={{ q|urlencode }}&fmt={{ fmt }}&page={{ page + 1 }}"
+      <a href="/?q={{ q|urlencode }}&fmt={{ fmt }}&lang={{ lang }}&year={{ year }}&sort={{ sort }}&order={{ order }}&page={{ page + 1 }}"
          style="padding:5px 14px; background:#1a1a2e; color:#fff; border-radius:4px; text-decoration:none; font-size:13px;">
         Next &rarr;
       </a>
@@ -76,8 +150,12 @@
   </div>
   {% endif %}
 
-{% elif q %}
-  <p style="color:#666;">No results found for <strong>{{ q }}</strong>{% if fmt %} in format <strong>{{ fmt }}</strong>{% endif %}.</p>
+{% elif q or lang or fmt or year %}
+  <p style="color:#666;">No results found
+    {%- if q %} for <strong>{{ q }}</strong>{% endif %}
+    {%- if year %} in <strong>{{ year }}</strong>{% endif %}
+    {%- if fmt %} in format <strong>{{ fmt }}</strong>{% endif %}
+    {%- if lang %} in language <strong>{{ lang_map.get(lang, lang) }}</strong>{% endif %}.</p>
 {% endif %}
 
 {% endblock %}

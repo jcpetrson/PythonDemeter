@@ -17,6 +17,74 @@ COMMON_FORMATS = [
     'azw', 'cbr', 'cbz', 'djvu', 'txt', 'kepub',
 ]
 
+COMMON_LANGUAGES = [
+    ('eng', 'English'),    # 722K
+    ('spa', 'Spanish'),    # 289K
+    ('ger', 'German'),     # 190K
+    ('dut', 'Dutch'),      # 88K
+    ('fre', 'French'),     # 66K
+    ('chi', 'Chinese'),    # 32K
+    ('cat', 'Catalan'),    # 19K
+    ('ita', 'Italian'),    # 17K
+    ('jpn', 'Japanese'),   # 8K
+    ('urd', 'Urdu'),       # 4K
+    ('rus', 'Russian'),    # 3K
+    ('pol', 'Polish'),     # 3K
+    ('cze', 'Czech'),      # 2K
+    ('snd', 'Sindhi'),     # 773
+    ('hun', 'Hungarian'),  # 282
+    ('dan', 'Danish'),     # 181
+    ('ara', 'Arabic'),     # 542
+    ('por', 'Portuguese'), # 407
+    ('lat', 'Latin'),      # 118
+    ('swe', 'Swedish'),    # 115
+]
+# Covers ISO 639-2/B codes (stored in DB), /T alternates, and every code seen in the data
+LANG_MAP = {
+    'eng': 'English',      'spa': 'Spanish',     'ger': 'German',      'deu': 'German',
+    'dut': 'Dutch',        'nld': 'Dutch',        'fre': 'French',      'fra': 'French',
+    'chi': 'Chinese',      'zho': 'Chinese',      'cat': 'Catalan',     'ita': 'Italian',
+    'jpn': 'Japanese',     'urd': 'Urdu',         'rus': 'Russian',     'pol': 'Polish',
+    'cze': 'Czech',        'ces': 'Czech',        'hun': 'Hungarian',   'dan': 'Danish',
+    'ara': 'Arabic',       'por': 'Portuguese',   'lat': 'Latin',       'swe': 'Swedish',
+    'tur': 'Turkish',      'gre': 'Greek',        'ell': 'Greek',       'fin': 'Finnish',
+    'nor': 'Norwegian',    'bul': 'Bulgarian',    'rum': 'Romanian',    'ron': 'Romanian',
+    'wel': 'Welsh',        'epo': 'Esperanto',    'lit': 'Lithuanian',  'slv': 'Slovenian',
+    'slo': 'Slovak',       'slk': 'Slovak',       'est': 'Estonian',    'glg': 'Galician',
+    'swa': 'Swahili',      'mlt': 'Maltese',      'amh': 'Amharic',     'snd': 'Sindhi',
+    'inh': 'Ingush',       'mlg': 'Malagasy',     'que': 'Quechua',     'srp': 'Serbian',
+    'tam': 'Tamil',        'bre': 'Breton',       'xho': 'Xhosa',       'alb': 'Albanian',
+    'sqi': 'Albanian',     'ukr': 'Ukrainian',    'oci': 'Occitan',     'ltz': 'Luxembourgish',
+    'kaz': 'Kazakh',       'baq': 'Basque',       'eus': 'Basque',
+}
+
+_AWARDS_PATH = os.path.join(_BASE_DIR, "data", "awards.json")
+
+def _load_awards():
+    """Load locally-stored Wikidata award winners, keyed by year (int)."""
+    if not os.path.exists(_AWARDS_PATH):
+        return {}
+    try:
+        with open(_AWARDS_PATH, encoding='utf-8') as f:
+            data = json.load(f)
+        by_year = {}
+        for entry in data.get('awards', []):
+            y = entry.get('year')
+            if y:
+                by_year.setdefault(int(y), []).append(entry)
+        return by_year
+    except Exception:
+        return {}
+
+AWARDS_BY_YEAR = _load_awards()
+
+SORT_FIELDS = {
+    'title':    "json_extract(s.title, '$.label')",
+    'authors':  "json_extract(s.authors, '$[0]')",
+    'year':     's.year',
+    'language': 's.language',
+}
+
 app = Flask(__name__)
 
 
@@ -118,10 +186,45 @@ def enrich_row(row):
     d['formats_list'] = parse_formats(d.get('formats'))
     d['links_list'] = parse_links(d.get('links'))
     d['cover_url'] = parse_cover(d.get('cover'))
+    if not d.get('language'):
+        d['language'] = 'eng'
     return d
 
 
-def do_search(q, fmt, page):
+def do_browse(fmt, lang, year, sort, order, page):
+    db = get_db()
+    offset = (page - 1) * PER_PAGE
+    cols = 's.uuid, s.title, s.authors, s.formats, s.year, s.series, s.links, s.cover, s.language'
+
+    conditions = []
+    params = []
+    if fmt:
+        conditions.append("EXISTS (SELECT 1 FROM json_each(s.formats) WHERE value = ?)")
+        params.append(fmt)
+    if lang == 'eng':
+        conditions.append("(s.language = 'eng' OR s.language IS NULL OR s.language = '')")
+    elif lang:
+        conditions.append("s.language = ?")
+        params.append(lang)
+    if year:
+        conditions.append("s.year = ?")
+        params.append(year)
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    order_clause = "json_extract(s.title, '$.label') ASC"
+    if sort in SORT_FIELDS:
+        direction = 'DESC' if order == 'desc' else 'ASC'
+        order_clause = f'{SORT_FIELDS[sort]} {direction}'
+
+    total = db.execute(f"SELECT COUNT(*) FROM summary s {where}", params).fetchone()[0]
+    rows = db.execute(
+        f"SELECT {cols} FROM summary s {where} ORDER BY {order_clause} LIMIT ? OFFSET ?",
+        params + [PER_PAGE, offset],
+    ).fetchall()
+    return [enrich_row(r) for r in rows], total
+
+
+def do_search(q, fmt, lang, year, sort, order, page):
     db = get_db()
     offset = (page - 1) * PER_PAGE
     fts_q = make_fts_query(q)
@@ -129,55 +232,96 @@ def do_search(q, fmt, page):
         return [], 0
 
     fmt_filter = fmt.lower() if fmt else ''
-    cols = 's.uuid, s.title, s.authors, s.formats, s.year, s.series, s.links, s.cover'
+    lang_filter = lang.lower() if lang else ''
+    cols = 's.uuid, s.title, s.authors, s.formats, s.year, s.series, s.links, s.cover, s.language'
 
+    extra_where = ''
+    extra_params = []
     if fmt_filter:
-        sql = f"""
-            SELECT {cols}
+        extra_where += ' AND EXISTS (SELECT 1 FROM json_each(s.formats) WHERE value = ?)'
+        extra_params.append(fmt_filter)
+    if lang_filter == 'eng':
+        extra_where += " AND (s.language = 'eng' OR s.language IS NULL OR s.language = '')"
+    elif lang_filter:
+        extra_where += ' AND s.language = ?'
+        extra_params.append(lang_filter)
+    if year:
+        extra_where += ' AND s.year = ?'
+        extra_params.append(year)
+
+    order_clause = 'rank'
+    if sort in SORT_FIELDS:
+        direction = 'DESC' if order == 'desc' else 'ASC'
+        order_clause = f'{SORT_FIELDS[sort]} {direction}'
+
+    sql = f"""
+        SELECT {cols}
+        FROM summary_fts f
+        JOIN summary s ON s.rowid = f.rowid
+        WHERE summary_fts MATCH ?{extra_where}
+        ORDER BY {order_clause}
+        LIMIT ? OFFSET ?
+    """
+    count_sql = f"""
+        SELECT COUNT(*) FROM (
+            SELECT f.rowid
             FROM summary_fts f
             JOIN summary s ON s.rowid = f.rowid
-            WHERE summary_fts MATCH ?
-              AND EXISTS (SELECT 1 FROM json_each(s.formats) WHERE value = ?)
-            ORDER BY rank
-            LIMIT ? OFFSET ?
-        """
-        count_sql = """
-            SELECT COUNT(*) FROM (
-                SELECT f.rowid
-                FROM summary_fts f
-                JOIN summary s ON s.rowid = f.rowid
-                WHERE summary_fts MATCH ?
-                  AND EXISTS (SELECT 1 FROM json_each(s.formats) WHERE value = ?)
-                LIMIT 5000
-            ) t
-        """
-        rows = db.execute(sql, (fts_q, fmt_filter, PER_PAGE, offset)).fetchall()
-        total = db.execute(count_sql, (fts_q, fmt_filter)).fetchone()[0]
-    else:
-        sql = f"""
-            SELECT {cols}
-            FROM summary_fts f
-            JOIN summary s ON s.rowid = f.rowid
-            WHERE summary_fts MATCH ?
-            ORDER BY rank
-            LIMIT ? OFFSET ?
-        """
-        count_sql = """
-            SELECT COUNT(*) FROM (
-                SELECT rowid FROM summary_fts WHERE summary_fts MATCH ?
-                LIMIT 5000
-            ) t
-        """
-        rows = db.execute(sql, (fts_q, PER_PAGE, offset)).fetchall()
-        total = db.execute(count_sql, (fts_q,)).fetchone()[0]
+            WHERE summary_fts MATCH ?{extra_where}
+            LIMIT 5000
+        ) t
+    """
+    rows = db.execute(sql, (fts_q, *extra_params, PER_PAGE, offset)).fetchall()
+    total = db.execute(count_sql, (fts_q, *extra_params)).fetchone()[0]
 
     return [enrich_row(r) for r in rows], total
+
+
+def get_home_stats():
+    db = get_db()
+    total = db.execute("SELECT COUNT(*) FROM summary").fetchone()[0]
+    lang_rows = db.execute(
+        "SELECT language, COUNT(*) as n FROM summary "
+        "WHERE language IS NOT NULL AND language != '' "
+        "GROUP BY language ORDER BY n DESC LIMIT 16"
+    ).fetchall()
+    year_rows = db.execute(
+        "SELECT year, COUNT(*) as n FROM summary "
+        "WHERE (language = 'eng' OR language IS NULL OR language = '') "
+        "AND year GLOB '[12][0-9][0-9][0-9]' "
+        "AND CAST(year AS INTEGER) BETWEEN 1800 AND 2025 "
+        "GROUP BY year ORDER BY year DESC LIMIT 60"
+    ).fetchall()
+    # Build awards list for the most recent years that have data
+    recent_award_years = sorted(
+        (y for y in AWARDS_BY_YEAR if 1920 <= y <= 2025),
+        reverse=True
+    )[:15]
+    awards_recent = {y: AWARDS_BY_YEAR[y] for y in recent_award_years}
+    return {
+        'total': total,
+        'languages': [dict(r) for r in lang_rows],
+        'years': [dict(r) for r in year_rows],
+        'awards': awards_recent,
+        'award_years': recent_award_years,
+        'has_awards': bool(awards_recent),
+    }
 
 
 @app.route('/')
 def search():
     q = request.args.get('q', '').strip()
     fmt = request.args.get('fmt', '').strip().lower()
+    lang = request.args.get('lang', '').strip().lower()
+    year = request.args.get('year', '').strip()
+    sort = request.args.get('sort', '').strip().lower()
+    order = request.args.get('order', 'asc').strip().lower()
+    if year and not (year.isdigit() and 1800 <= int(year) <= 2025):
+        year = ''
+    if sort not in SORT_FIELDS:
+        sort = ''
+    if order not in ('asc', 'desc'):
+        order = 'asc'
     try:
         page = max(1, int(request.args.get('page', 1) or 1))
     except (ValueError, TypeError):
@@ -186,19 +330,29 @@ def search():
     books, total, error = [], 0, None
     if q:
         try:
-            books, total = do_search(q, fmt, page)
+            books, total = do_search(q, fmt, lang, year, sort, order, page)
         except sqlite3.OperationalError as e:
             error = f"Search error: {e}"
+    elif lang or fmt or year:
+        try:
+            books, total = do_browse(fmt, lang, year, sort, order, page)
+        except sqlite3.OperationalError as e:
+            error = f"Browse error: {e}"
 
     total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+    is_home = not (q or lang or fmt or year)
+    stats = get_home_stats() if is_home else None
 
     return render_template(
         'index.html',
-        q=q, fmt=fmt, page=page,
+        q=q, fmt=fmt, lang=lang, year=year, sort=sort, order=order, page=page,
         books=books, total=total,
         total_pages=total_pages,
         per_page=PER_PAGE,
         formats=COMMON_FORMATS,
+        languages=COMMON_LANGUAGES,
+        lang_map=LANG_MAP,
+        stats=stats,
         error=error,
     )
 
@@ -228,7 +382,9 @@ def book_detail(uuid):
     except Exception:
         book['identifiers_dict'] = {}
 
-    return render_template('book.html', book=book)
+    return render_template('book.html', book=book, lang_map=LANG_MAP,
+                           formats=COMMON_FORMATS, languages=COMMON_LANGUAGES,
+                           q='', fmt='', lang='')
 
 
 @app.route('/sites')
