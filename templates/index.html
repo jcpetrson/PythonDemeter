@@ -84,7 +84,7 @@
     <div class="home-card">
       <h2>Currently Reading</h2>
       <div style="display:flex; flex-direction:column; gap:0.3rem;">
-        <a href="/?q={{ stats.currently_reading.title | urlencode }}"
+        <a href="/?q={{ stats.currently_reading.search_title | urlencode }}"
            style="font-weight:700; font-size:1.05rem; color:#1a1a2e; text-decoration:none;">
           {{ stats.currently_reading.title }}
         </a>

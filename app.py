@@ -114,8 +114,10 @@ def _load_goodreads():
             author = row.get('Author', '').strip()
             rating = int(row.get('My Rating') or 0)
             shelf  = row.get('Exclusive Shelf', '')
+            search_title = re.sub(r'\s*\([^)]*\)\s*$', '', title).strip() or title
             entry  = {
-                'title':      title,
+                'title':        title,
+                'search_title': search_title,
                 'author':     author,
                 'rating':     rating,
                 'shelf':      shelf,
@@ -254,9 +256,10 @@ def parse_cover(raw):
 
 
 def make_fts_query(q):
-    cleaned = re.sub(r'["\(\)\*:\^\\]', ' ', q)
-    words = cleaned.split()
-    return ' '.join(words)
+    words = (q or '').split()
+    if not words:
+        return ''
+    return ' '.join('"' + w.replace('"', '""') + '"' for w in words)
 
 
 def enrich_row(row):
