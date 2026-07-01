@@ -80,6 +80,25 @@
       </div>
     </div>
 
+    {% if stats.currently_reading %}
+    <div class="home-card">
+      <h2>Currently Reading</h2>
+      <div style="display:flex; flex-direction:column; gap:0.3rem;">
+        <a href="/?q={{ stats.currently_reading.title | urlencode }}"
+           style="font-weight:700; font-size:1.05rem; color:#1a1a2e; text-decoration:none;">
+          {{ stats.currently_reading.title }}
+        </a>
+        <span style="color:#555; font-size:0.9rem;">by {{ stats.currently_reading.author }}</span>
+        {% if stats.currently_reading.year %}
+        <span style="color:#999; font-size:0.85rem;">{{ stats.currently_reading.year }}</span>
+        {% endif %}
+        <a href="/my-library" style="margin-top:0.5rem; font-size:12px; color:#1a73e8; text-decoration:none;">
+          View My Library &rarr;
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 
 {% elif books %}
@@ -117,6 +136,20 @@
           {% endif %}
           {% if book.series %}
             <span style="color:#888; font-size:12px; margin-left:4px;">{{ book.series }}</span>
+          {% endif %}
+          {% if book.goodreads %}
+            {% set gr = book.goodreads %}
+            {% if gr.shelf == 'currently-reading' %}
+              <span class="gr-badge gr-reading">Reading</span>
+            {% elif gr.shelf == 'to-read' %}
+              <span class="gr-badge gr-toread">To Read</span>
+            {% elif gr.shelf == 'read' %}
+              {% if gr.rating > 0 %}
+                <span class="gr-badge gr-read" title="My rating">{{ '★' * gr.rating }}{{ '☆' * (5 - gr.rating) }}</span>
+              {% else %}
+                <span class="gr-badge gr-read">Read</span>
+              {% endif %}
+            {% endif %}
           {% endif %}
         </td>
         <td style="padding:8px 12px; color:#444;">{{ book.authors_text or '—' }}</td>

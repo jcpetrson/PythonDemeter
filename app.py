@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
+import csv
 import json
 import os
 import re
 import sqlite3
+import unicodedata
 
 from flask import Flask, g, render_template, request, abort
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INDEX_DB_PATH = os.path.join(_BASE_DIR, "data", "index.db")
-SITES_DB_PATH = os.path.join(_BASE_DIR, "data", "sites.db")
+INDEX_DB_PATH    = os.path.join(_BASE_DIR, "data", "index.db")
+SITES_DB_PATH    = os.path.join(_BASE_DIR, "data", "sites.db")
+GOODREADS_PATH   = os.path.join(_BASE_DIR, "goodreads_library_export.csv")
 
 PER_PAGE = 25
 
@@ -77,6 +80,84 @@ def _load_awards():
         return {}
 
 AWARDS_BY_YEAR = _load_awards()
+
+
+def _gr_isbn(raw):
+    return re.sub(r'[^0-9X]', '', raw or '')
+
+def _strip_accents(s):
+    return ''.join(c for c in unicodedata.normalize('NFKD', s) if not unicodedata.combining(c))
+
+def _gr_title_key(title):
+    t = _strip_accents((title or '').lower())
+    t = re.sub(r'\s*\(.*?\)\s*$', '', t)
+    return re.sub(r'\s+', ' ', t).strip()
+
+def _gr_author_key(author):
+    author = (author or '').strip()
+    if ',' in author:
+        surname = author.split(',')[0]
+    else:
+        parts = author.split()
+        surname = parts[-1] if parts else author
+    return re.sub(r'\s+', ' ', surname).strip().lower()
+
+def _load_goodreads():
+    if not os.path.exists(GOODREADS_PATH):
+        return None
+    by_isbn, by_title = {}, {}
+    current, to_read, read, dnf = None, [], [], []
+    with open(GOODREADS_PATH, encoding='utf-8') as f:
+        for row in csv.DictReader(f):
+            isbn13 = _gr_isbn(row.get('ISBN13', ''))
+            title  = row.get('Title', '').strip()
+            author = row.get('Author', '').strip()
+            rating = int(row.get('My Rating') or 0)
+            shelf  = row.get('Exclusive Shelf', '')
+            entry  = {
+                'title':      title,
+                'author':     author,
+                'rating':     rating,
+                'shelf':      shelf,
+                'date_read':  row.get('Date Read', ''),
+                'date_added': row.get('Date Added', ''),
+                'isbn13':     isbn13,
+                'pages':      row.get('Number of Pages', ''),
+                'year':       row.get('Original Publication Year') or row.get('Year Published', ''),
+            }
+            if isbn13:
+                by_isbn[isbn13] = entry
+            tk = (_gr_title_key(title), _gr_author_key(author))
+            by_title[tk] = entry
+            if shelf == 'currently-reading':
+                current = entry
+            elif shelf == 'to-read':
+                to_read.append(entry)
+            elif shelf == 'read':
+                read.append(entry)
+            elif shelf == 'did-not-finish':
+                dnf.append(entry)
+    read.sort(key=lambda e: e['date_read'] or '', reverse=True)
+    return {'by_isbn': by_isbn, 'by_title': by_title,
+            'current': current, 'to_read': to_read, 'read': read, 'dnf': dnf}
+
+GOODREADS = _load_goodreads()
+
+
+def _match_goodreads(d):
+    if not GOODREADS:
+        return None
+    try:
+        idents = json.loads(d.get('identifiers') or '{}')
+        isbn = re.sub(r'[^0-9X]', '', idents.get('isbn', ''))
+        if isbn and isbn in GOODREADS['by_isbn']:
+            return GOODREADS['by_isbn'][isbn]
+    except Exception:
+        pass
+    tk = (_gr_title_key(d.get('title_text') or ''),
+          _gr_author_key(d.get('authors_text') or ''))
+    return GOODREADS['by_title'].get(tk)
+
 
 SORT_FIELDS = {
     'title':    "json_extract(s.title, '$.label')",
@@ -188,13 +269,14 @@ def enrich_row(row):
     d['cover_url'] = parse_cover(d.get('cover'))
     if not d.get('language'):
         d['language'] = 'eng'
+    d['goodreads'] = _match_goodreads(d)
     return d
 
 
 def do_browse(fmt, lang, year, sort, order, page):
     db = get_db()
     offset = (page - 1) * PER_PAGE
-    cols = 's.uuid, s.title, s.authors, s.formats, s.year, s.series, s.links, s.cover, s.language'
+    cols = 's.uuid, s.title, s.authors, s.formats, s.year, s.series, s.links, s.cover, s.language, s.identifiers'
 
     conditions = []
     params = []
@@ -233,7 +315,7 @@ def do_search(q, fmt, lang, year, sort, order, page):
 
     fmt_filter = fmt.lower() if fmt else ''
     lang_filter = lang.lower() if lang else ''
-    cols = 's.uuid, s.title, s.authors, s.formats, s.year, s.series, s.links, s.cover, s.language'
+    cols = 's.uuid, s.title, s.authors, s.formats, s.year, s.series, s.links, s.cover, s.language, s.identifiers'
 
     extra_where = ''
     extra_params = []
@@ -305,7 +387,22 @@ def get_home_stats():
         'awards': awards_recent,
         'award_years': recent_award_years,
         'has_awards': bool(awards_recent),
+        'currently_reading': GOODREADS['current'] if GOODREADS else None,
     }
+
+
+@app.route('/my-library')
+def my_library():
+    ctx = dict(formats=COMMON_FORMATS, languages=COMMON_LANGUAGES, q='', fmt='', lang='')
+    if not GOODREADS:
+        return render_template('my_library.html',
+                               current=None, read=[], to_read=[], dnf=[], **ctx)
+    return render_template('my_library.html',
+                           current=GOODREADS['current'],
+                           read=GOODREADS['read'],
+                           to_read=GOODREADS['to_read'],
+                           dnf=GOODREADS['dnf'],
+                           **ctx)
 
 
 @app.route('/')

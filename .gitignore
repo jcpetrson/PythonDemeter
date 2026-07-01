@@ -2,6 +2,7 @@
 data/
 Archive*.zip
 Books.csv
+goodreads_library_export.csv
 
 # Python
 __pycache__/

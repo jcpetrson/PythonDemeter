@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}My Library — WWW Library{% endblock %}
+
+{% block content %}
+<style>
+  .ml-section { margin-bottom: 2rem; }
+  .ml-section h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .06em; color: #888; font-weight: 600; margin: 0 0 0.75rem; }
+  .ml-current { background: #fff; border-radius: 8px; padding: 1.25rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); display:flex; gap: 1.5rem; align-items: flex-start; }
+  .ml-current-info { display: flex; flex-direction: column; gap: 0.25rem; }
+  .ml-current-title { font-size: 1.2rem; font-weight: 700; color: #1a1a2e; text-decoration: none; }
+  .ml-current-title:hover { text-decoration: underline; }
+  .ml-current-author { color: #555; }
+  .ml-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .ml-table th { background: #1a1a2e; color: #fff; padding: 8px 12px; text-align: left; font-size: 13px; }
+  .ml-table td { padding: 7px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+  .ml-table tr:last-child td { border-bottom: none; }
+  .ml-table tr:hover td { background: #fafafa; }
+  .star-rating { color: #f59e0b; letter-spacing: -1px; }
+  .star-empty  { color: #ddd; letter-spacing: -1px; }
+  .ml-title-link { color: #1a1a2e; font-weight: 600; text-decoration: none; }
+  .ml-title-link:hover { text-decoration: underline; color: #1a73e8; }
+  .ml-empty { color: #888; font-style: italic; }
+  .ml-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+  .ml-tab { padding: 5px 14px; border-radius: 4px; background: #f0f2f5; color: #555; text-decoration: none; font-size: 13px; font-weight: 500; }
+  .ml-tab.active { background: #1a1a2e; color: #fff; }
+  .ml-tab:hover:not(.active) { background: #e0e2e5; }
+</style>
+
+<h1 style="font-size:1.5rem; color:#1a1a2e; margin:0 0 1.5rem;">My Library</h1>
+
+{% if current %}
+<div class="ml-section">
+  <h2>Currently Reading</h2>
+  <div class="ml-current">
+    <div class="ml-current-info">
+      <a href="/?q={{ current.title | urlencode }}" class="ml-current-title">{{ current.title }}</a>
+      <span class="ml-current-author">by {{ current.author }}</span>
+      {% if current.year %}<span style="color:#999; font-size:13px;">{{ current.year }}</span>{% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="ml-section">
+  <h2>Read ({{ read | length }})</h2>
+  {% if read %}
+  <table class="ml-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Author</th>
+        <th style="width:80px; text-align:center;">Rating</th>
+        <th style="width:90px; text-align:center;">Year</th>
+        <th style="width:100px; text-align:center;">Date Read</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for book in read %}
+      <tr>
+        <td>
+          <a href="/?q={{ book.title | urlencode }}" class="ml-title-link">{{ book.title }}</a>
+        </td>
+        <td style="color:#555;">{{ book.author }}</td>
+        <td style="text-align:center;">
+          {% if book.rating %}
+            <span class="star-rating">{{ '★' * book.rating }}</span><span class="star-empty">{{ '☆' * (5 - book.rating) }}</span>
+          {% else %}
+            <span style="color:#ccc;">—</span>
+          {% endif %}
+        </td>
+        <td style="text-align:center; color:#666;">{{ book.year or '—' }}</td>
+        <td style="text-align:center; color:#666; font-size:13px;">{{ book.date_read or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="ml-empty">No books marked as read.</p>
+  {% endif %}
+</div>
+
+<div class="ml-section">
+  <h2>To Read ({{ to_read | length }})</h2>
+  {% if to_read %}
+  <table class="ml-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Author</th>
+        <th style="width:90px; text-align:center;">Year</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for book in to_read %}
+      <tr>
+        <td><a href="/?q={{ book.title | urlencode }}" class="ml-title-link">{{ book.title }}</a></td>
+        <td style="color:#555;">{{ book.author }}</td>
+        <td style="text-align:center; color:#666;">{{ book.year or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="ml-empty">No books on to-read list.</p>
+  {% endif %}
+</div>
+
+{% if dnf %}
+<div class="ml-section">
+  <h2>Did Not Finish ({{ dnf | length }})</h2>
+  <table class="ml-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Author</th>
+        <th style="width:90px; text-align:center;">Year</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for book in dnf %}
+      <tr>
+        <td><a href="/?q={{ book.title | urlencode }}" class="ml-title-link">{{ book.title }}</a></td>
+        <td style="color:#555;">{{ book.author }}</td>
+        <td style="text-align:center; color:#666;">{{ book.year or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if not read and not to_read and not current %}
+  <p style="color:#888;">No Goodreads library data found. Add <code>goodreads_library_export.csv</code> to the app directory and restart.</p>
+{% endif %}
+
+{% endblock %}

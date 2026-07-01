@@ -151,6 +151,12 @@
     .award-title:hover { text-decoration: underline; }
     .award-author { color: #555; }
     .award-badge { display: inline-block; padding: 1px 7px; border-radius: 3px; background: #eef2ff; color: #3730a3; font-size: 11px; white-space: nowrap; }
+
+    /* Goodreads shelf badges */
+    .gr-badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; margin-left: 6px; white-space: nowrap; vertical-align: middle; }
+    .gr-read    { background: #d1fae5; color: #065f46; }
+    .gr-reading { background: #fef3c7; color: #92400e; }
+    .gr-toread  { background: #e0f2fe; color: #0369a1; }
   </style>
 </head>
 <body>
@@ -160,6 +166,7 @@
       <img src="/static/icon.png" alt="" style="height:32px; width:32px; border-radius:6px; vertical-align:middle; margin-right:6px;">
       WWW Library
     </a>
+    <a href="/my-library" style="color:#ccc; text-decoration:none; font-size:13px; white-space:nowrap;">My Library</a>
     <a href="/sites" style="color:#ccc; text-decoration:none; font-size:13px; white-space:nowrap;">Sites</a>
     <form action="/" method="get">
       <input type="search" name="q" placeholder="Search titles, authors, series..." value="{{ q|default('') }}">
