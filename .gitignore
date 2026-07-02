@@ -13,3 +13,6 @@ venv/
 
 # macOS
 .DS_Store
+
+# Source assets (icon generated from these)
+Gemini_Generated_Image_*.png
